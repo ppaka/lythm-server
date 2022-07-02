@@ -33,7 +33,7 @@ io.on('connection', socket => {
   }, 1000);
 
   socket.on('createRoom', async (data) => {
-    console.log(`Received: [createRoom] ${socket.id} -> "${data}"`);
+    console.log(`Request: [createRoom] ${socket.id} -> "${data}"`);
     var code = data;
     if (code === '-1') {
       do {
@@ -49,7 +49,7 @@ io.on('connection', socket => {
       for (const socket of sockets) {
         clientsOnRoom.push(socket.id);
       }
-      await socket.emit('joinRoomSuccess', { date: new Date().getTime(), code: code, users: clientsOnRoom });
+      await socket.emit('joinRoomSuccess', { date: new Date().getTime(), code: code, users: clientsOnRoom, isCreateRoom: true });
     }
     else {
       code = fillZero(6, code);
@@ -66,7 +66,7 @@ io.on('connection', socket => {
         for (const socket of sockets) {
           clientsOnRoom.push(socket.id);
         }
-        await socket.emit('joinRoomSuccess', { date: new Date().getTime(), code: code, users: clientsOnRoom });
+        await socket.emit('joinRoomSuccess', { date: new Date().getTime(), code: code, users: clientsOnRoom, isCreateRoom: true });
       }
     }
   });
@@ -84,7 +84,7 @@ io.on('connection', socket => {
       for (const socket of sockets) {
         clientsOnRoom.push(socket.id);
       }
-      socket.emit('joinRoomSuccess', { date: new Date().getTime(), code: code, users: clientsOnRoom });
+      socket.emit('joinRoomSuccess', { date: new Date().getTime(), code: code, users: clientsOnRoom, isCreateRoom: false });
       socket.to(code).emit('roomUserList', { date: new Date().getTime(), code: code, users: clientsOnRoom })
     }
   });
@@ -98,6 +98,18 @@ io.on('connection', socket => {
       socket.leave(code);
       socket.emit('leaveRoomSuccess', { date: new Date().getTime(), code: code });
       socket.to(code).emit('roomUserLeft', socket.id);
+    }
+  });
+
+  socket.on('roomStartGame', (code) => {
+    if (code === '') {
+      console.log(`Error: [roomStartGame] cannot Start Game ${socket.id} -> "${code}"`);
+    }
+    else {
+      console.log(`Working: [roomStartGame] ${socket.id} -> "${code}"`);
+      socket.leave(code);
+      socket.emit('roomStartGame', { date: new Date().getTime(), code: code });
+      socket.to(code).emit('roomStartGame', { date: new Date().getTime(), code: code });
     }
   });
 
