@@ -101,15 +101,23 @@ io.on('connection', socket => {
     }
   });
 
-  socket.on('roomStartGame', (code) => {
+  socket.on('roomStartGame', (code, levelPath) => {
     if (code === '') {
       console.log(`Error: [roomStartGame] cannot Start Game ${socket.id} -> "${code}"`);
     }
     else {
       console.log(`Working: [roomStartGame] ${socket.id} -> "${code}"`);
-      socket.leave(code);
-      socket.emit('roomStartGame', { date: new Date().getTime(), code: code });
-      socket.to(code).emit('roomStartGame', { date: new Date().getTime(), code: code });
+      io.to(code).emit('roomStartGame', { date: new Date().getTime(), code: code, level: levelPath });
+    }
+  });
+
+  socket.on('roomStartGamePlayerReady', (code) => {
+    if (code === '') {
+      console.log(`Error: [roomStartGamePlayerReady] cannot Ready Game ${socket.id} -> "${code}"`);
+    }
+    else {
+      console.log(`Working: [roomStartGamePlayerReady] ${socket.id} -> "${code}"`);
+      io.to(code).emit('roomStartGamePlayerReady', { date: new Date().getTime(), code: code, readyUser: socket.id });
     }
   });
 
