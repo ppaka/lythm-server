@@ -97,7 +97,7 @@ io.on('connection', socket => {
       console.log(`Working: [leaveRoom] ${socket.id} -> "${code}"`);
       socket.leave(code);
       socket.emit('leaveRoomSuccess', { date: new Date().getTime(), code: code });
-      socket.to(code).emit('roomUserLeft', socket.id);
+      socket.to(code).emit('roomUserLeft', { date: new Date().getTime(), code: code, leftUser: socket.id });
     }
   });
 
