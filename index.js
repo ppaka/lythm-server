@@ -89,6 +89,16 @@ io.on('connection', socket => {
     }
   });
 
+  socket.on('roomSelectedLevel', (code, levelCode) => {
+    if (code === '') {
+      console.log(`Error: [roomSelectedLevel] cannot send to others levelCode[${levelCode}] ${socket.id} -> "${code}"`);
+    }
+    else {
+      console.log(`Working: [roomSelectedLevel] levelCode[${levelCode}] ${socket.id} -> "${code}"`);
+      socket.to(code).emit('roomSelectedLevel', { date: new Date().getTime(), code: code, level: levelCode });
+    }
+  });
+
   socket.on('leaveRoom', (code) => {
     if (code === '') {
       console.log(`Error: [leaveRoom] cannot leave room ${socket.id} -> "${code}"`);
@@ -101,13 +111,13 @@ io.on('connection', socket => {
     }
   });
 
-  socket.on('roomStartGame', (code, levelPath) => {
+  socket.on('roomStartGame', (code, levelCode) => {
     if (code === '') {
       console.log(`Error: [roomStartGame] cannot Start Game ${socket.id} -> "${code}"`);
     }
     else {
       console.log(`Working: [roomStartGame] ${socket.id} -> "${code}"`);
-      io.to(code).emit('roomStartGame', { date: new Date().getTime(), code: code, level: levelPath });
+      io.to(code).emit('roomStartGame', { date: new Date().getTime(), code: code, level: levelCode });
     }
   });
 
@@ -125,7 +135,7 @@ io.on('connection', socket => {
     for (const room of socket.rooms) {
       if (room !== socket.id) {
         console.log(`Emit: [roomUserLeft] ${socket.id} -> "${room}"`);
-        socket.to(room).emit('roomUserLeft', socket.id);
+        socket.to(room).emit('roomUserLeft', { date: new Date().getTime(), code: room, leftUser: socket.id } );
       }
     }
   });
