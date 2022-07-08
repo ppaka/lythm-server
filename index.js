@@ -3,6 +3,12 @@ const socket = require('socket.io');
 const server = http.createServer();
 const port = 11100;
 
+var createdRooms = {};
+
+function roomInfoUpdate(code, roomInfo) {
+  io.to(code).emit('roomInfoUpdate', { date: new Date().getTime(), roomInfo: roomInfo })
+}
+
 function createRandNum(min, max) {
   var ntemp = Math.floor(Math.random() * (max - min + 1)) + min;
   return ntemp;
@@ -43,13 +49,22 @@ io.on('connection', socket => {
       while (io.sockets.adapter.rooms.has(code));
 
       console.log(`Working: [createRoom] ${socket.id} -> "${code}"`);
+
+      var roomInfo = new RoomInfo('', '', '', 8, code);
+
       await socket.join(code);
       const sockets = await io.in(code).fetchSockets();
       var clientsOnRoom = [];
       for (const socket of sockets) {
         clientsOnRoom.push(socket.id);
       }
+
+      roomInfo.owner = socket.id;
+      roomInfo.curPlayers++;
+      createdRooms[code] = roomInfo;
+
       await socket.emit('joinRoomSuccess', { date: new Date().getTime(), code: code, users: clientsOnRoom, isCreateRoom: true });
+      roomInfoUpdate(code, roomInfo);
     }
     else {
       code = fillZero(6, code);
@@ -135,7 +150,7 @@ io.on('connection', socket => {
     for (const room of socket.rooms) {
       if (room !== socket.id) {
         console.log(`Emit: [roomUserLeft] ${socket.id} -> "${room}"`);
-        socket.to(room).emit('roomUserLeft', { date: new Date().getTime(), code: room, leftUser: socket.id } );
+        socket.to(room).emit('roomUserLeft', { date: new Date().getTime(), code: room, leftUser: socket.id });
       }
     }
   });
