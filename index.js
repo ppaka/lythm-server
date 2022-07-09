@@ -226,17 +226,22 @@ io.on('connection', socket => {
     }
     else {
       console.log(`Working: [roomStartGame] ${socket.id} -> "${code}"`);
-      
+
       var roomInfo = createdRooms[code];
-      roomInfo.players.forEach((value, index, array)=>{
-        if (roomInfo.players[index].state === "Ready"){
+      var startList = [];
+
+      roomInfo.players.forEach((value, index, array) => {
+        if (roomInfo.players[index].state === "Ready") {
           roomInfo.players[index].state = "Loading";
+          startList.push(roomInfo.players[index].socketId);
         }
       })
       createdRooms[code] = roomInfo;
       roomInfoUpdate(code, createdRooms[code]);
 
-      io.to(code).emit('roomStartGame', { date: new Date().getTime(), room: createdRooms[code] });
+      for (const socketId of startList) {
+        io.to(socketId).emit('roomStartGame', { date: new Date().getTime(), room: createdRooms[code] });
+      }
     }
   });
 
@@ -248,8 +253,8 @@ io.on('connection', socket => {
       console.log(`Working: [roomStartGamePlayerReady] ${socket.id} -> "${code}"`);
 
       var roomInfo = createdRooms[code];
-      roomInfo.players.forEach((value, index, array)=>{
-        if (roomInfo.players[index].socketId === socket.id){
+      roomInfo.players.forEach((value, index, array) => {
+        if (roomInfo.players[index].socketId === socket.id) {
           roomInfo.players[index].state = "Playing";
         }
       })
