@@ -17,6 +17,13 @@ class RoomInfo {
   }
 }
 
+class Player {
+  constructor(socketId) {
+    this.socketId = socketId;
+    this.state = "NotReady";
+  }
+}
+
 function roomInfoUpdate(code, roomInfo) {
   io.to(code).emit('roomUpdate', { date: new Date().getTime(), room: roomInfo })
 }
@@ -66,17 +73,15 @@ io.on('connection', socket => {
 
       await socket.join(code);
       const sockets = await io.in(code).fetchSockets();
-      var clientsOnRoom = [];
+      var playersOnRoom = [];
       for (const socket of sockets) {
-        clientsOnRoom.push(socket.id);
+        playersOnRoom.push(new Player(socket.id));
       }
 
       roomInfo.owner = socket.id;
-      roomInfo.curPlayers++;
-      roomInfo.players = clientsOnRoom;
+      roomInfo.curPlayers = playersOnRoom.length;
+      roomInfo.players = playersOnRoom;
       createdRooms[code] = roomInfo;
-
-      // await socket.emit('roomUpdate', { date: new Date().getTime(), room: roomInfo});
       roomInfoUpdate(code, roomInfo);
     }
     else {
@@ -90,11 +95,17 @@ io.on('connection', socket => {
 
         await socket.join(code);
         const sockets = await io.in(code).fetchSockets();
-        var clientsOnRoom = [];
+        var playersOnRoom = [];
         for (const socket of sockets) {
-          clientsOnRoom.push(socket.id);
+          playersOnRoom.push(new Player(socket.id));
         }
-        await socket.emit('joinRoomSuccess', { date: new Date().getTime(), code: code, users: clientsOnRoom, isCreateRoom: true });
+
+        roomInfo.owner = socket.id;
+        roomInfo.curPlayers = playersOnRoom.length;
+        roomInfo.players = playersOnRoom;
+        createdRooms[code] = roomInfo;
+
+        roomInfoUpdate(code, roomInfo);
       }
     }
   });
@@ -108,14 +119,14 @@ io.on('connection', socket => {
       await socket.join(code);
       console.log(`Working: [joinRoom] ${socket.id} -> "${code}"`);
       const sockets = await io.in(code).fetchSockets();
-      var clientsOnRoom = [];
+      var playersOnRoom = [];
       for (const socket of sockets) {
-        clientsOnRoom.push(socket.id);
+        playersOnRoom.push(new Player(socket.id));
       }
 
       var roomInfo = createdRooms[code];
-      roomInfo.curPlayers = clientsOnRoom.length;
-      roomInfo.players = clientsOnRoom;
+      roomInfo.curPlayers = playersOnRoom.length;
+      roomInfo.players = playersOnRoom;
       createdRooms[code] = roomInfo;
 
       roomInfoUpdate(code, roomInfo);
@@ -132,6 +143,7 @@ io.on('connection', socket => {
       var roomInfo = createdRooms[code];
       roomInfo.level = levelCode;
       createdRooms[code] = roomInfo;
+
       roomInfoUpdate(code, roomInfo);
     }
   });
@@ -151,17 +163,60 @@ io.on('connection', socket => {
         delete createdRooms[code];
       }
       else {
-        var clientsOnRoom = [];
+        var playersOnRoom = [];
         for (const socket of sockets) {
-          clientsOnRoom.push(socket.id);
+          playersOnRoom.push(new Player(socket.id));
         }
         var roomInfo = createdRooms[code];
         roomInfo.owner = socket.id;
-        roomInfo.curPlayers = clientsOnRoom.length;
-        roomInfo.players = clientsOnRoom;
+        roomInfo.curPlayers = playersOnRoom.length;
+        roomInfo.players = playersOnRoom;
         createdRooms[code] = roomInfo;
+
         roomInfoUpdate(code, roomInfo);
       }
+    }
+  });
+
+  socket.on('roomPlayerReady', (code) => {
+    if (code === '') {
+      console.log(`Error: [roomPlayerReady] cannot Player Ready ${socket.id} -> "${code}"`);
+    }
+    else {
+      console.log(`Working: [roomPlayerReady] ${socket.id} -> "${code}"`);
+      var roomInfo = createdRooms[code];
+
+      const index = roomInfo.players.findIndex((element) => {
+        if (element.socketId === socket.id) {
+          return true;
+        }
+      })
+
+      roomInfo.players[index].state = "Ready";
+
+      createdRooms[code] = roomInfo;
+      roomInfoUpdate(code, createdRooms[code]);
+    }
+  });
+
+  socket.on('roomPlayerReadyCancel', (code) => {
+    if (code === '') {
+      console.log(`Error: [roomPlayerReadyCancel] cannot Cancel Player Ready ${socket.id} -> "${code}"`);
+    }
+    else {
+      console.log(`Working: [roomPlayerReadyCancel] ${socket.id} -> "${code}"`);
+      var roomInfo = createdRooms[code];
+
+      const index = roomInfo.players.findIndex((element) => {
+        if (element.socketId === socket.id) {
+          return true;
+        }
+      })
+
+      roomInfo.players[index].state = "NotReady";
+
+      createdRooms[code] = roomInfo;
+      roomInfoUpdate(code, createdRooms[code]);
     }
   });
 
@@ -171,6 +226,16 @@ io.on('connection', socket => {
     }
     else {
       console.log(`Working: [roomStartGame] ${socket.id} -> "${code}"`);
+      
+      var roomInfo = createdRooms[code];
+      roomInfo.players.forEach((value, index, array)=>{
+        if (roomInfo.players[index].state === "Ready"){
+          roomInfo.players[index].state = "Loading";
+        }
+      })
+      createdRooms[code] = roomInfo;
+      roomInfoUpdate(code, createdRooms[code]);
+
       io.to(code).emit('roomStartGame', { date: new Date().getTime(), room: createdRooms[code] });
     }
   });
@@ -181,7 +246,15 @@ io.on('connection', socket => {
     }
     else {
       console.log(`Working: [roomStartGamePlayerReady] ${socket.id} -> "${code}"`);
-      io.to(code).emit('roomStartGamePlayerReady', { date: new Date().getTime(), room: createdRooms[code], readyUser: socket.id });
+
+      var roomInfo = createdRooms[code];
+      roomInfo.players.forEach((value, index, array)=>{
+        if (roomInfo.players[index].socketId === socket.id){
+          roomInfo.players[index].state = "Playing";
+        }
+      })
+      createdRooms[code] = roomInfo;
+      roomInfoUpdate(code, createdRooms[code]);
     }
   });
 
@@ -199,15 +272,16 @@ io.on('connection', socket => {
           delete createdRooms[room];
         }
         else {
-          var clientsOnRoom = [];
+          var playersOnRoom = [];
           for (const socket of sockets) {
-            clientsOnRoom.push(socket.id);
+            playersOnRoom.push(new Player(socket.id));
           }
           var roomInfo = createdRooms[room];
           roomInfo.owner = socket.id;
-          roomInfo.curPlayers = clientsOnRoom.length;
-          roomInfo.players = clientsOnRoom;
+          roomInfo.curPlayers = playersOnRoom.length;
+          roomInfo.players = playersOnRoom;
           createdRooms[room] = roomInfo;
+
           roomInfoUpdate(room, roomInfo);
         }
       }
