@@ -24,6 +24,11 @@ class Player {
   }
 }
 
+function randomValueFromArray(array) {
+  const random = Math.floor(Math.random() * array.length);
+  return array[random];
+}
+
 function roomInfoUpdate(code, roomInfo) {
   io.to(code).emit('roomUpdate', { date: new Date().getTime(), room: roomInfo })
 }
@@ -168,9 +173,12 @@ io.on('connection', socket => {
           playersOnRoom.push(new Player(socket.id));
         }
         var roomInfo = createdRooms[code];
-        roomInfo.owner = socket.id;
+
         roomInfo.curPlayers = playersOnRoom.length;
         roomInfo.players = playersOnRoom;
+        if (roomInfo.owner === socket.id) {
+          roomInfo.owner = randomValueFromArray(roomInfo.players).socketId;
+        }
         createdRooms[code] = roomInfo;
 
         roomInfoUpdate(code, roomInfo);
@@ -215,6 +223,20 @@ io.on('connection', socket => {
 
       roomInfo.players[index].state = "NotReady";
 
+      createdRooms[code] = roomInfo;
+      roomInfoUpdate(code, createdRooms[code]);
+    }
+  });
+
+  socket.on('roomChangeOwner', (code, newOwner) => {
+    if (newOwner === '') {
+      console.log(`Error: [roomChangeOwner] cannot ChangeOwner ${socket.id} -> "${code}"`);
+    }
+    else {
+      console.log(`Working: [roomChangeOwner] ${socket.id} -> "${code}"`);
+
+      var roomInfo = createdRooms[code];
+      roomInfo.owner = newOwner;
       createdRooms[code] = roomInfo;
       roomInfoUpdate(code, createdRooms[code]);
     }
@@ -278,9 +300,12 @@ io.on('connection', socket => {
             playersOnRoom.push(new Player(socket.id));
           }
           var roomInfo = createdRooms[room];
-          roomInfo.owner = socket.id;
+
           roomInfo.curPlayers = playersOnRoom.length;
           roomInfo.players = playersOnRoom;
+          if (roomInfo.owner === socket.id){
+            roomInfo.owner = randomValueFromArray(roomInfo.players).socketId;
+          }
           createdRooms[room] = roomInfo;
 
           roomInfoUpdate(room, roomInfo);
