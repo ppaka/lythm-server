@@ -3,6 +3,36 @@ const socket = require('socket.io');
 const server = http.createServer();
 const port = 11100;
 
+var createdRooms = {};
+
+class RoomInfo {
+  constructor(name, level, owner, maxPlayers, roomCode) {
+    this.name = name;
+    this.level = level;
+    this.owner = owner;
+    this.maxPlayers = maxPlayers;
+    this.curPlayers = 0;
+    this.players = [];
+    this.roomCode = roomCode;
+  }
+}
+
+class Player {
+  constructor(socketId) {
+    this.socketId = socketId;
+    this.state = "NotReady";
+  }
+}
+
+function randomValueFromArray(array) {
+  const random = Math.floor(Math.random() * array.length);
+  return array[random];
+}
+
+function roomInfoUpdate(code, roomInfo) {
+  io.to(code).emit('roomUpdate', { date: new Date().getTime(), room: roomInfo })
+}
+
 function createRandNum(min, max) {
   var ntemp = Math.floor(Math.random() * (max - min + 1)) + min;
   return ntemp;
@@ -43,13 +73,21 @@ io.on('connection', socket => {
       while (io.sockets.adapter.rooms.has(code));
 
       console.log(`Working: [createRoom] ${socket.id} -> "${code}"`);
+
+      var roomInfo = new RoomInfo('', '', '', 8, code);
+
       await socket.join(code);
       const sockets = await io.in(code).fetchSockets();
-      var clientsOnRoom = [];
+      var playersOnRoom = [];
       for (const socket of sockets) {
-        clientsOnRoom.push(socket.id);
+        playersOnRoom.push(new Player(socket.id));
       }
-      await socket.emit('joinRoomSuccess', { date: new Date().getTime(), code: code, users: clientsOnRoom, isCreateRoom: true });
+
+      roomInfo.owner = socket.id;
+      roomInfo.curPlayers = playersOnRoom.length;
+      roomInfo.players = playersOnRoom;
+      createdRooms[code] = roomInfo;
+      roomInfoUpdate(code, roomInfo);
     }
     else {
       code = fillZero(6, code);
@@ -62,11 +100,17 @@ io.on('connection', socket => {
 
         await socket.join(code);
         const sockets = await io.in(code).fetchSockets();
-        var clientsOnRoom = [];
+        var playersOnRoom = [];
         for (const socket of sockets) {
-          clientsOnRoom.push(socket.id);
+          playersOnRoom.push(new Player(socket.id));
         }
-        await socket.emit('joinRoomSuccess', { date: new Date().getTime(), code: code, users: clientsOnRoom, isCreateRoom: true });
+
+        roomInfo.owner = socket.id;
+        roomInfo.curPlayers = playersOnRoom.length;
+        roomInfo.players = playersOnRoom;
+        createdRooms[code] = roomInfo;
+
+        roomInfoUpdate(code, roomInfo);
       }
     }
   });
@@ -80,12 +124,17 @@ io.on('connection', socket => {
       await socket.join(code);
       console.log(`Working: [joinRoom] ${socket.id} -> "${code}"`);
       const sockets = await io.in(code).fetchSockets();
-      var clientsOnRoom = [];
+      var playersOnRoom = [];
       for (const socket of sockets) {
-        clientsOnRoom.push(socket.id);
+        playersOnRoom.push(new Player(socket.id));
       }
-      socket.emit('joinRoomSuccess', { date: new Date().getTime(), code: code, users: clientsOnRoom, isCreateRoom: false });
-      socket.to(code).emit('roomUserList', { date: new Date().getTime(), code: code, users: clientsOnRoom })
+
+      var roomInfo = createdRooms[code];
+      roomInfo.curPlayers = playersOnRoom.length;
+      roomInfo.players = playersOnRoom;
+      createdRooms[code] = roomInfo;
+
+      roomInfoUpdate(code, roomInfo);
     }
   });
 
@@ -95,29 +144,122 @@ io.on('connection', socket => {
     }
     else {
       console.log(`Working: [roomSelectedLevel] levelCode[${levelCode}] ${socket.id} -> "${code}"`);
-      socket.to(code).emit('roomSelectedLevel', { date: new Date().getTime(), code: code, level: levelCode });
+
+      var roomInfo = createdRooms[code];
+      roomInfo.level = levelCode;
+      createdRooms[code] = roomInfo;
+
+      roomInfoUpdate(code, roomInfo);
     }
   });
 
-  socket.on('leaveRoom', (code) => {
+  socket.on('leaveRoom', async (code) => {
     if (code === '') {
       console.log(`Error: [leaveRoom] cannot leave room ${socket.id} -> "${code}"`);
     }
     else {
       console.log(`Working: [leaveRoom] ${socket.id} -> "${code}"`);
-      socket.leave(code);
-      socket.emit('leaveRoomSuccess', { date: new Date().getTime(), code: code });
-      socket.to(code).emit('roomUserLeft', { date: new Date().getTime(), code: code, leftUser: socket.id });
+      await socket.leave(code);
+      await socket.emit('leaveRoomSuccess', { date: new Date().getTime(), code: code });
+
+      const sockets = await io.in(code).fetchSockets();
+
+      if (sockets.length == 0) {
+        delete createdRooms[code];
+      }
+      else {
+        var playersOnRoom = [];
+        for (const socket of sockets) {
+          playersOnRoom.push(new Player(socket.id));
+        }
+        var roomInfo = createdRooms[code];
+
+        roomInfo.curPlayers = playersOnRoom.length;
+        roomInfo.players = playersOnRoom;
+        if (roomInfo.owner === socket.id) {
+          roomInfo.owner = randomValueFromArray(roomInfo.players).socketId;
+        }
+        createdRooms[code] = roomInfo;
+
+        roomInfoUpdate(code, roomInfo);
+      }
     }
   });
 
-  socket.on('roomStartGame', (code, levelCode) => {
+  socket.on('roomPlayerReady', (code) => {
+    if (code === '') {
+      console.log(`Error: [roomPlayerReady] cannot Player Ready ${socket.id} -> "${code}"`);
+    }
+    else {
+      console.log(`Working: [roomPlayerReady] ${socket.id} -> "${code}"`);
+      var roomInfo = createdRooms[code];
+
+      const index = roomInfo.players.findIndex((element) => {
+        if (element.socketId === socket.id) {
+          return true;
+        }
+      });
+
+      roomInfo.players[index].state = "Ready";
+
+      createdRooms[code] = roomInfo;
+      roomInfoUpdate(code, createdRooms[code]);
+    }
+  });
+
+  socket.on('roomPlayerReadyCancel', (code) => {
+    if (code === '') {
+      console.log(`Error: [roomPlayerReadyCancel] cannot Cancel Player Ready ${socket.id} -> "${code}"`);
+    }
+    else {
+      console.log(`Working: [roomPlayerReadyCancel] ${socket.id} -> "${code}"`);
+      var roomInfo = createdRooms[code];
+
+      const index = roomInfo.players.findIndex((element) => {
+        if (element.socketId === socket.id) {
+          return true;
+        }
+      });
+
+      roomInfo.players[index].state = "NotReady";
+
+      createdRooms[code] = roomInfo;
+      roomInfoUpdate(code, createdRooms[code]);
+    }
+  });
+
+  socket.on('roomChangeOwner', (code, newOwner) => {
+    if (newOwner === '') {
+      console.log(`Error: [roomChangeOwner] cannot ChangeOwner ${socket.id} -> "${code}"`);
+    }
+    else {
+      console.log(`Working: [roomChangeOwner] ${socket.id} -> "${code}"`);
+
+      var roomInfo = createdRooms[code];
+      roomInfo.owner = newOwner;
+      createdRooms[code] = roomInfo;
+      roomInfoUpdate(code, createdRooms[code]);
+    }
+  });
+
+  socket.on('roomStartGame', (code) => {
     if (code === '') {
       console.log(`Error: [roomStartGame] cannot Start Game ${socket.id} -> "${code}"`);
     }
     else {
       console.log(`Working: [roomStartGame] ${socket.id} -> "${code}"`);
-      io.to(code).emit('roomStartGame', { date: new Date().getTime(), code: code, level: levelCode });
+
+      var roomInfo = createdRooms[code];
+
+      roomInfo.players.forEach((value, index, array) => {
+        if (roomInfo.players[index].state === "Ready") {
+          roomInfo.players[index].state = "Loading";
+        }
+      });
+      createdRooms[code] = roomInfo;
+      roomInfoUpdate(code, createdRooms[code]);
+
+      io.to(code).emit('roomStartGame', { date: new Date().getTime(), room: createdRooms[code] });
     }
   });
 
@@ -127,15 +269,47 @@ io.on('connection', socket => {
     }
     else {
       console.log(`Working: [roomStartGamePlayerReady] ${socket.id} -> "${code}"`);
-      io.to(code).emit('roomStartGamePlayerReady', { date: new Date().getTime(), code: code, readyUser: socket.id });
+
+      var roomInfo = createdRooms[code];
+      roomInfo.players.forEach((value, index, array) => {
+        if (roomInfo.players[index].socketId === socket.id) {
+          roomInfo.players[index].state = "Playing";
+        }
+      });
+      createdRooms[code] = roomInfo;
+      roomInfoUpdate(code, createdRooms[code]);
     }
   });
 
-  socket.on('disconnecting', (reason) => {
+  socket.on('disconnecting', async (reason) => {
+    console.log(`[disconnect] ${socket.id}`);
+
     for (const room of socket.rooms) {
       if (room !== socket.id) {
         console.log(`Emit: [roomUserLeft] ${socket.id} -> "${room}"`);
-        socket.to(room).emit('roomUserLeft', { date: new Date().getTime(), code: room, leftUser: socket.id } );
+        socket.leave(room);
+
+        const sockets = await io.in(room).fetchSockets();
+
+        if (sockets.length == 0) {
+          delete createdRooms[room];
+        }
+        else {
+          var playersOnRoom = [];
+          for (const socket of sockets) {
+            playersOnRoom.push(new Player(socket.id));
+          }
+          var roomInfo = createdRooms[room];
+
+          roomInfo.curPlayers = playersOnRoom.length;
+          roomInfo.players = playersOnRoom;
+          if (roomInfo.owner === socket.id){
+            roomInfo.owner = randomValueFromArray(roomInfo.players).socketId;
+          }
+          createdRooms[room] = roomInfo;
+
+          roomInfoUpdate(room, roomInfo);
+        }
       }
     }
   });
