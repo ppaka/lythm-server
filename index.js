@@ -281,6 +281,36 @@ io.on('connection', socket => {
     }
   });
 
+  socket.on('roomPlayerState', (code, state) => {
+    if (code === '') {
+      console.log(`Error: [roomPlayerState] cannot set state ${socket.id} -> "${code}"`);
+    }
+    else {
+      console.log(`Working: [roomPlayerState] {${state}} ${socket.id} -> "${code}"`);
+
+      if (state === 'Result') {
+        var roomInfo = createdRooms[code];
+        roomInfo.players.forEach((value, index, array) => {
+          if (roomInfo.players[index].socketId === socket.id) {
+            roomInfo.players[index].state = "Result";
+          }
+        });
+        createdRooms[code] = roomInfo;
+        roomInfoUpdate(code, createdRooms[code]);
+      }
+      else if (state === 'NotReady') {
+        var roomInfo = createdRooms[code];
+        roomInfo.players.forEach((value, index, array) => {
+          if (roomInfo.players[index].socketId === socket.id) {
+            roomInfo.players[index].state = "NotReady";
+          }
+        });
+        createdRooms[code] = roomInfo;
+        roomInfoUpdate(code, createdRooms[code]);
+      }
+    }
+  });
+
   socket.on('disconnecting', async (reason) => {
     console.log(`[disconnect] ${socket.id}`);
 
@@ -303,7 +333,7 @@ io.on('connection', socket => {
 
           roomInfo.curPlayers = playersOnRoom.length;
           roomInfo.players = playersOnRoom;
-          if (roomInfo.owner === socket.id){
+          if (roomInfo.owner === socket.id) {
             roomInfo.owner = randomValueFromArray(roomInfo.players).socketId;
           }
           createdRooms[room] = roomInfo;
