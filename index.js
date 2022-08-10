@@ -62,9 +62,9 @@ io.on('connection', socket => {
     socket.emit('connection', { date: new Date().getTime(), data: `Hello Unity` })
   }, 1000);
 
-  socket.on('createRoom', async (data) => {
-    console.log(`Request: [createRoom] ${socket.id} -> "${data}"`);
-    var code = data;
+  socket.on('createRoom', async (roomCode, levelCode) => {
+    console.log(`Request: [createRoom] ${socket.id} -> "${roomCode}"`);
+    var code = roomCode;
     if (code === '-1') {
       do {
         var randnum = createRandNum(1, 999999);
@@ -74,7 +74,7 @@ io.on('connection', socket => {
 
       console.log(`Working: [createRoom] ${socket.id} -> "${code}"`);
 
-      var roomInfo = new RoomInfo('', '', '', 8, code);
+      var roomInfo = new RoomInfo('', levelCode, '', 8, code);
 
       await socket.join(code);
       const sockets = await io.in(code).fetchSockets();
