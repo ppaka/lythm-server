@@ -30,7 +30,7 @@ function randomValueFromArray(array) {
 }
 
 function roomInfoUpdate(code, roomInfo) {
-  io.to(code).emit('roomUpdate', { date: new Date().getTime(), room: roomInfo })
+  io.to(code).emit('roomUpdate', { date: new Date().getTime(), room: roomInfo });
 }
 
 function createRandNum(min, max) {
@@ -300,6 +300,8 @@ io.on('connection', socket => {
       }
       else if (state === 'NotReady') {
         var roomInfo = createdRooms[code];
+        if (roomInfo == null) return;
+
         roomInfo.players.forEach((value, index, array) => {
           if (roomInfo.players[index].socketId === socket.id) {
             roomInfo.players[index].state = "NotReady";
@@ -309,6 +311,13 @@ io.on('connection', socket => {
         roomInfoUpdate(code, createdRooms[code]);
       }
     }
+  });
+
+  socket.on('roomPlayerScoreUpdate', (roomCode, score) => {
+    if (roomCode === '') {
+      console.log(`Error: [roomPlayerScoreUpdate] cannot update score ${score} -> "${socket.id}"`);
+    }
+    socket.to(roomCode).emit('roomPlayerScoreUpdate', { date: new Date().getTime(), socketId: socket.id, score: score });
   });
 
   socket.on('disconnecting', async (reason) => {
