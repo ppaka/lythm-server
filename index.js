@@ -20,6 +20,7 @@ class RoomInfo {
 class Player {
   constructor(socketId) {
     this.socketId = socketId;
+    this.score = 0;
     this.state = "NotReady";
   }
 }
@@ -250,12 +251,11 @@ io.on('connection', socket => {
       console.log(`Working: [roomStartGame] ${socket.id} -> "${code}"`);
 
       var roomInfo = createdRooms[code];
-
-      roomInfo.players.forEach((value, index, array) => {
+      for (let index = 0; index < roomInfo.players.length; index++) {
         if (roomInfo.players[index].state === "Ready") {
           roomInfo.players[index].state = "Loading";
         }
-      });
+      }
       createdRooms[code] = roomInfo;
       roomInfoUpdate(code, createdRooms[code]);
 
@@ -271,11 +271,11 @@ io.on('connection', socket => {
       console.log(`Working: [roomStartGamePlayerReady] ${socket.id} -> "${code}"`);
 
       var roomInfo = createdRooms[code];
-      roomInfo.players.forEach((value, index, array) => {
+      for (let index = 0; index < roomInfo.players.length; index++) {
         if (roomInfo.players[index].socketId === socket.id) {
           roomInfo.players[index].state = "Playing";
         }
-      });
+      }
       createdRooms[code] = roomInfo;
       roomInfoUpdate(code, createdRooms[code]);
     }
@@ -290,11 +290,11 @@ io.on('connection', socket => {
 
       if (state === 'Result') {
         var roomInfo = createdRooms[code];
-        roomInfo.players.forEach((value, index, array) => {
+        for (let index = 0; index < roomInfo.players.length; index++) {
           if (roomInfo.players[index].socketId === socket.id) {
             roomInfo.players[index].state = "Result";
           }
-        });
+        }
         createdRooms[code] = roomInfo;
         roomInfoUpdate(code, createdRooms[code]);
       }
@@ -302,11 +302,11 @@ io.on('connection', socket => {
         var roomInfo = createdRooms[code];
         if (roomInfo == null) return;
 
-        roomInfo.players.forEach((value, index, array) => {
+        for (let index = 0; index < roomInfo.players.length; index++) {
           if (roomInfo.players[index].socketId === socket.id) {
             roomInfo.players[index].state = "NotReady";
           }
-        });
+        }
         createdRooms[code] = roomInfo;
         roomInfoUpdate(code, createdRooms[code]);
       }
@@ -317,7 +317,16 @@ io.on('connection', socket => {
     if (roomCode === '') {
       console.log(`Error: [roomPlayerScoreUpdate] cannot update score ${score} -> "${socket.id}"`);
     }
-    socket.to(roomCode).emit('roomPlayerScoreUpdate', { date: new Date().getTime(), socketId: socket.id, score: score });
+    var roomInfo = createdRooms[roomCode];
+    if (roomInfo == null) return;
+
+    for (let index = 0; index < roomInfo.players.length; index++) {
+      if (roomInfo.players[index].socketId === socket.id) {
+        roomInfo.players[index].score = score;
+      }
+    }
+    createdRooms[roomCode] = roomInfo;
+    roomInfoUpdate(roomCode, createdRooms[roomCode]);
   });
 
   socket.on('disconnecting', async (reason) => {
