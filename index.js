@@ -6,10 +6,10 @@ const port = 11100;
 var createdRooms = {};
 
 class RoomInfo {
-  constructor(name, level, owner, maxPlayers, roomCode) {
+  constructor(name, levelCode, ownerSocketId, maxPlayers, roomCode) {
     this.name = name;
-    this.level = level;
-    this.owner = owner;
+    this.levelCode = levelCode;
+    this.ownerSocketId = ownerSocketId;
     this.maxPlayers = maxPlayers;
     this.curPlayers = 0;
     this.players = [];
