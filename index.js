@@ -60,7 +60,7 @@ io.on('connection', socket => {
   console.log(`[connection] ${socket.id}`);
 
   setTimeout(() => {
-    socket.emit('connection', { date: new Date().getTime(), data: `Hello Unity` })
+    socket.emit('connection', { date: new Date().getTime(), data: `Hello Unity` });
   }, 1000);
 
   socket.on('createRoom', async (roomCode, levelCode) => {
@@ -84,7 +84,7 @@ io.on('connection', socket => {
         playersOnRoom.push(new Player(socket.id));
       }
 
-      roomInfo.owner = socket.id;
+      roomInfo.ownerSocketId = socket.id;
       roomInfo.curPlayers = playersOnRoom.length;
       roomInfo.players = playersOnRoom;
       createdRooms[code] = roomInfo;
@@ -106,7 +106,7 @@ io.on('connection', socket => {
           playersOnRoom.push(new Player(socket.id));
         }
 
-        roomInfo.owner = socket.id;
+        roomInfo.ownerSocketId = socket.id;
         roomInfo.curPlayers = playersOnRoom.length;
         roomInfo.players = playersOnRoom;
         createdRooms[code] = roomInfo;
@@ -146,8 +146,8 @@ io.on('connection', socket => {
     else {
       console.log(`Working: [roomSelectedLevel] levelCode[${levelCode}] ${socket.id} -> "${code}"`);
 
-      var roomInfo = createdRooms[code];
-      roomInfo.level = levelCode;
+      var roomInfo = createdRooms[code];      
+      roomInfo.levelCode = levelCode;
       createdRooms[code] = roomInfo;
 
       roomInfoUpdate(code, roomInfo);
@@ -177,8 +177,8 @@ io.on('connection', socket => {
 
         roomInfo.curPlayers = playersOnRoom.length;
         roomInfo.players = playersOnRoom;
-        if (roomInfo.owner === socket.id) {
-          roomInfo.owner = randomValueFromArray(roomInfo.players).socketId;
+        if (roomInfo.ownerSocketId === socket.id) {
+          roomInfo.ownerSocketId = randomValueFromArray(roomInfo.players).socketId;
         }
         createdRooms[code] = roomInfo;
 
@@ -237,7 +237,7 @@ io.on('connection', socket => {
       console.log(`Working: [roomChangeOwner] ${socket.id} -> "${code}"`);
 
       var roomInfo = createdRooms[code];
-      roomInfo.owner = newOwner;
+      roomInfo.ownerSocketId = newOwner;
       createdRooms[code] = roomInfo;
       roomInfoUpdate(code, createdRooms[code]);
     }
@@ -355,8 +355,8 @@ io.on('connection', socket => {
 
           roomInfo.curPlayers = playersOnRoom.length;
           roomInfo.players = playersOnRoom;
-          if (roomInfo.owner === socket.id) {
-            roomInfo.owner = randomValueFromArray(roomInfo.players).socketId;
+          if (roomInfo.ownerSocketId === socket.id) {
+            roomInfo.ownerSocketId = randomValueFromArray(roomInfo.players).socketId;
           }
           createdRooms[room] = roomInfo;
 
