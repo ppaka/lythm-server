@@ -290,30 +290,16 @@ io.on('connection', socket => {
     else {
       console.log(`Working: [roomPlayerState] {${state}} ${socket.id} -> "${code}"`);
 
-      if (state === 'Result') {
-        var roomInfo = createdRooms[code];
-        if (roomInfo == null) return;
+      var roomInfo = createdRooms[code];
+      if (roomInfo == null) return;
 
-        for (let index = 0; index < roomInfo.players.length; index++) {
-          if (roomInfo.players[index].socketId === socket.id) {
-            roomInfo.players[index].state = "Result";
-          }
+      for (let index = 0; index < roomInfo.players.length; index++) {
+        if (roomInfo.players[index].socketId === socket.id) {
+          roomInfo.players[index].state = state;
         }
-        createdRooms[code] = roomInfo;
-        roomInfoUpdate(code, createdRooms[code]);
       }
-      else if (state === 'NotReady') {
-        var roomInfo = createdRooms[code];
-        if (roomInfo == null) return;
-
-        for (let index = 0; index < roomInfo.players.length; index++) {
-          if (roomInfo.players[index].socketId === socket.id) {
-            roomInfo.players[index].state = "NotReady";
-          }
-        }
-        createdRooms[code] = roomInfo;
-        roomInfoUpdate(code, createdRooms[code]);
-      }
+      createdRooms[code] = roomInfo;
+      roomInfoUpdate(code, createdRooms[code]);
     }
   });
 
