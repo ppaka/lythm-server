@@ -332,15 +332,7 @@ io.on('connection', socket => {
     else {
       var roomInfo = createdRooms[roomCode];
       if (roomInfo == null) return;
-
-      for (let index = 0; index < roomInfo.players.length; index++) {
-        if (roomInfo.players[index].socketId === socket.id) {
-          roomInfo.players[index].result = result;
-          break;
-        }
-      }
-      createdRooms[roomCode] = roomInfo;
-      roomInfoUpdate(roomCode, createdRooms[roomCode]);
+      io.to(roomCode).emit('roomPlayerResult', { date: new Date().getTime(), resultJson: result });
     }
   });
 
