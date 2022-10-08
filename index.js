@@ -254,6 +254,7 @@ io.on('connection', socket => {
       for (let index = 0; index < roomInfo.players.length; index++) {
         if (roomInfo.players[index].state === "Ready") {
           roomInfo.players[index].state = "Loading";
+          break;
         }
       }
       createdRooms[code] = roomInfo;
@@ -276,6 +277,7 @@ io.on('connection', socket => {
       for (let index = 0; index < roomInfo.players.length; index++) {
         if (roomInfo.players[index].socketId === socket.id) {
           roomInfo.players[index].state = "Playing";
+          break;
         }
       }
       createdRooms[code] = roomInfo;
@@ -296,6 +298,7 @@ io.on('connection', socket => {
       for (let index = 0; index < roomInfo.players.length; index++) {
         if (roomInfo.players[index].socketId === socket.id) {
           roomInfo.players[index].state = state;
+          break;
         }
       }
       createdRooms[code] = roomInfo;
@@ -307,16 +310,38 @@ io.on('connection', socket => {
     if (roomCode === '') {
       console.log(`Error: [roomPlayerScoreUpdate] cannot update score ${score} -> "${socket.id}"`);
     }
-    var roomInfo = createdRooms[roomCode];
-    if (roomInfo == null) return;
+    else {
+      var roomInfo = createdRooms[roomCode];
+      if (roomInfo == null) return;
 
-    for (let index = 0; index < roomInfo.players.length; index++) {
-      if (roomInfo.players[index].socketId === socket.id) {
-        roomInfo.players[index].score = score;
+      for (let index = 0; index < roomInfo.players.length; index++) {
+        if (roomInfo.players[index].socketId === socket.id) {
+          roomInfo.players[index].score = score;
+          break;
+        }
       }
+      createdRooms[roomCode] = roomInfo;
+      roomInfoUpdate(roomCode, createdRooms[roomCode]);
     }
-    createdRooms[roomCode] = roomInfo;
-    roomInfoUpdate(roomCode, createdRooms[roomCode]);
+  });
+
+  socket.on('roomPlayerGameResult', (roomCode, result) => {
+    if (roomCode === '') {
+      console.log(`Error: [roomPlayerGameResult] cannot get result "${socket.id}"`);
+    }
+    else {
+      var roomInfo = createdRooms[roomCode];
+      if (roomInfo == null) return;
+
+      for (let index = 0; index < roomInfo.players.length; index++) {
+        if (roomInfo.players[index].socketId === socket.id) {
+          roomInfo.players[index].result = result;
+          break;
+        }
+      }
+      createdRooms[roomCode] = roomInfo;
+      roomInfoUpdate(roomCode, createdRooms[roomCode]);
+    }
   });
 
   socket.on('disconnecting', async (reason) => {
